@@ -60,10 +60,35 @@ class ParseURL:
         file_path.write_text(json.dumps(data, ensure_ascii=False), encoding='UTF-8')
 
 
+class CategoriesParser(ParseURL):
+    def __init__(self, categories_url: str, *args, **kwargs):
+        self.categories_url = categories_url
+        super().__init__(*args, **kwargs)
+
+    def _get_categories(self) -> list:
+        response = self._get_response(self.categories_url)
+        data = response.json()
+        return data
+
+    def run(self):
+        for category in self._get_categories():
+            category["products"] = []
+            url_data = f"{self.start_url}?categories={category['parent_group_code']}"
+            file_path = self.products_path.joinpath(f"{category['parent_group_code']}.json")
+            category["products"].extend(list(self._parse(url_data)))
+            self._save(category, file_path)
+
+
+def get_dir_path(dirname: str) -> Path:
+    dir_path = Path(__file__).parent.joinpath(dirname)
+    if not dir_path.exists():
+        dir_path.mkdir()
+    return dir_path
+
+
 if __name__ == '__main__':
     url = 'https://5ka.ru/api/v2/special_offers/'
-    save_path = Path(__file__).parent.joinpath('products')
-    if not save_path.exists():
-        save_path.mkdir()
-    parser = ParseURL(url, save_path)
-    parser.run()
+    categories_path = get_dir_path("categories")
+    categories_url = 'https://5ka.ru/api/v2/categories/'
+    cat_parser = CategoriesParser(categories_url, url, categories_path)
+    cat_parser.run()
